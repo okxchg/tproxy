@@ -139,6 +139,29 @@ static char *http_hdr_table_get(http_hdr_table *t, const char *header)
     return NULL;
 }
 
+static int http_tocrlf_length(const char *s)
+{
+    int i;
+
+    for (i = 0; !is_crlf(s+i); i++) {
+        if (!s[i])
+            return 0;
+    }
+
+    return i;
+}
+
+static int http_tosp_length(int sep, const char *s)
+{
+    int i;
+
+    for (i = 0; s[i] != sep; i++) {
+        if (is_ctl_char(s[i]) || is_sep_char(s[i])) return 0;
+    }
+
+    return i;
+}
+
 static int parse_http_version(struct http_version *v, const char **s)
 {
     const char *p = *s;
@@ -156,56 +179,63 @@ static int parse_http_version(struct http_version *v, const char **s)
     return 0;
 }
 
+static int http_method_length(const char *s)
+{
+    return http_tosp_length(' ', s);
+}
+
+static int http_uri_length(const char *s)
+{
+    int i;
+
+    for (i = 0; s[i] != ' '; i++) {
+        if (!s[i]) return 0;
+    }
+
+    return i;
+}
+
 int http_request_line_parse(struct http_request_line *rline, const char *s)
 {
-    const char *p;
-    const char *b;
-    char *tmp;
+    int methodl;
+    int uril;
+    const char *urib;
+    const char *methodb;
+    const char *versionb;
+    char *uris;
 
     assert(rline);
     assert(s);
 
     memset(rline, 0, sizeof(*rline));
 
-    /* method */
-    for (b = p = s; ; p++) {
-        if (*p == ' ') {
-            if (p-b <= 0) goto err_out;
-            rline->method = xstrndup(b, p-b);
-            p++;
-            break;
-        }
+    methodb = s;
+    methodl = http_method_length(methodb);
+    if (!methodl)
+        return -1;
 
-        if (is_ctl_char(*p) || is_sep_char(*p)) goto err_out;
+    urib = methodb + methodl + 1;
+    uril = http_uri_length(urib);
+    if (!uril)
+        return -1;
+
+    versionb = urib + uril + 1;
+    if (parse_http_version(&rline->version, &versionb) == -1)
+        return -1;
+
+    if (!is_crlf(versionb))
+        return -1;
+
+    rline->method = xstrndup(methodb, methodl);
+    uris = xstrndup(urib, uril);
+    if (uri_parse(&(rline->uri), uris) != 0) {
+        xfree(rline->method);
+        xfree(uris);
+        return -1;
     }
+    xfree(uris);
 
-    /* uri */
-    /* TODO: make uri_parse(uri, s, n) version */
-    for (b = p; ; p++) {
-        if (*p == ' ') {
-            if (p-b <= 0) goto err_uri;
-            tmp = xstrndup(b, p-b);
-            if (uri_parse(&rline->uri, tmp) != 0) goto err_uri_parse;
-            p++;
-            break;
-        }
-
-        if (!*p) goto err_uri;
-    }
-
-    if (parse_http_version(&rline->version, &p) == -1 || !is_crlf(p))
-        goto err_version;
-
-    xfree(tmp);
     return 0;
-err_version:
-    uri_destroy(&rline->uri);
-err_uri_parse:
-    xfree(tmp);
-err_uri:
-    xfree(rline->method);
-err_out:
-    return -1;
 }
 
 void http_request_line_destroy(struct http_request_line *rline)
@@ -217,11 +247,17 @@ void http_request_line_destroy(struct http_request_line *rline)
     memset(rline, 0, sizeof(*rline));
 }
 
+static int http_reason_length(const char *s)
+{
+    return http_tocrlf_length(s);
+}
+
 int http_status_line_parse(struct http_status_line *sline, const char *s)
 {
     const char *p;
     const char *b;
     char *tmp;
+    int reasonl;
 
     assert(sline);
     assert(s);
@@ -241,15 +277,10 @@ int http_status_line_parse(struct http_status_line *sline, const char *s)
     xfree(tmp);
     p += 4;
 
-    for (b = p; ; p++) {
-        if (is_crlf(p)) {
-            if (p-b <= 0) return -1;
-            sline->reason = xstrndup(b, p-b);
-            break;
-        }
-
-        if (!*p) return -1;
-    }
+    reasonl = http_reason_length(p);
+    if (!reasonl)
+        return -1;
+    sline->reason = xstrndup(p, reasonl);
     return 0;
 }
 
@@ -275,26 +306,12 @@ void http_headers_destroy(http_hdr_table *t)
 
 static int http_field_name_length(const char *s)
 {
-    int i;
-
-    for (i = 0; s[i] != ':'; i++) {
-        if (is_ctl_char(s[i]) || is_sep_char(s[i])) 
-            return 0;
-    }
-    
-    return i;
+    return http_tosp_length(':', s);
 }
 
 static int http_value_length(const char *s)
 {
-    int i;
-
-    for (i = 0; !is_crlf(s+i); i++) {
-        if (!s[i])
-            return 0;
-    }
-
-    return i;
+    return http_tocrlf_length(s);
 }
 
 int http_header_parse(http_hdr_table *t, const char *s)
@@ -309,7 +326,7 @@ int http_header_parse(http_hdr_table *t, const char *s)
 
     hname = s;
     hl = http_field_name_length(s);
-    if (hl <= 0)
+    if (!hl)
         return -1;
 
     s += hl+1;
@@ -319,7 +336,7 @@ int http_header_parse(http_hdr_table *t, const char *s)
 
     hvalue = s;
     vl = http_value_length(s);
-    if (vl <= 0)
+    if (!vl)
         return -1;
 
     http_hdr_table_set(t, hname, hl, hvalue, vl);
