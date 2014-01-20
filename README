@@ -1,0 +1,7 @@
+This is not done at all. HTTP parsing works.
+
+Do:
+    autoreconf -i
+    ./configure
+    make
+    make check
