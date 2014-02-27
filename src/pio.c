@@ -8,7 +8,7 @@ int tp_open(const char *filename, int flags, mode_t mode)
     return open(filename, flags, mode);
 }
 
-int tp_write(int fd, const void *buf, size_t len) 
+ssize_t tp_write(int fd, const void *buf, size_t len) 
 {
     ssize_t ret;
     const char *p;
