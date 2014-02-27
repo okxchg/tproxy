@@ -1,6 +1,6 @@
 TESTS = run_tests
 check_PROGRAMS = run_tests
-run_tests_SOURCES = run_tests.c check_uri.c check_http.c check_log.c \
+run_tests_SOURCES = run_tests.c check_uri.c check_http.c check_log.c common.c common.h \
 					$(top_builddir)/src/http.h $(top_builddir)/src/http.c \
 					$(top_builddir)/src/uri.h $(top_builddir)/src/uri.c \
 					$(top_builddir)/src/xmalloc.c $(top_builddir)/src/xmalloc.h \
