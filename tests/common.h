@@ -3,6 +3,8 @@
 
 #include "../src/uri.h"
 
+#define s(s) s == NULL ? "(null)" : s
+
 void assert_uri(struct uri *uri, const char *uri_s, char *scheme, char *opt, 
         char *hostname, int port, char *path, char *query, char *fragment);
 

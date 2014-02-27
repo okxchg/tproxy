@@ -5,10 +5,6 @@
 #include "../src/uri.h"
 #include "common.h"
 
-#define assert_uri_field(uri, f, diag) assert_str_msg(uri->f, f, diag)
-
-#define s(s) s == NULL ? "(null)" : s
-
 static void setup(void)
 {
 }
@@ -21,6 +17,8 @@ void assert_uri(struct uri *uri, const char *uri_s, char *scheme, char *opt,
         char *hostname, int port, char *path, char *query, char *fragment)
 {
     char diag[4096];
+
+#define assert_uri_field(uri, f, diag) assert_str_msg(uri->f, f, diag)
 
     snprintf(diag, 4096, 
         "%s -> s: %s o: %s h: %s p: %d pa: %s q: %s f: %s\n", 
