@@ -48,4 +48,3 @@ char *xstrdup(const char *s)
 
     return ptr;
 }
-

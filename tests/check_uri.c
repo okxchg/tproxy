@@ -53,13 +53,27 @@ START_TEST(test_uri_parse_scheme)
 {
     struct uri uri;
 
-    fail_if(uri_parse(&uri, ":") == 0, "Empty scheme #1"); uri_destroy(&uri);
-    fail_if(uri_parse(&uri, "") == 0, "Empty scheme #2"); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, ":"), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, ""), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, "http:"), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, "http:/"), -1); uri_destroy(&uri);
+
     test_uri("h.t+tp://hostname", "h.t+tp", NULL, "hostname", 0, NULL, NULL, NULL);
 } END_TEST 
 
 START_TEST(test_uri_parse_authority)
 {
+    struct uri uri;
+    int ret;
+
+    ck_assert_int_eq(uri_parse(&uri, "http://[ho:st:name"), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, "http://[]"), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, "http:///"), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, "http://?"), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, "http://#"), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, "http://:"), -1); uri_destroy(&uri);
+    ck_assert_int_eq(uri_parse(&uri, "http://"), -1); uri_destroy(&uri);
+
     test_uri("http://[ho:st:name]", "http", NULL, "ho:st:name", 0, NULL, NULL, NULL);
     test_uri("http://[ho:st:name]:", "http", NULL, "ho:st:name", 0, NULL, NULL, NULL);
     test_uri("http://[ho:st:name]:81", "http", NULL, "ho:st:name", 81, NULL, NULL, NULL);
